@@ -4,3 +4,4 @@
 .vscode
 dist
 **/*__pycache__
+env
