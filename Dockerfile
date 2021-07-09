@@ -4,7 +4,8 @@ LABEL maintainer="Ethan Green <egreen4@unca.edu>"
 
 ENV VIRTUAL_ENV=/opt/venv
 RUN python3 -m venv $VIRTUAL_ENV
-ENV PATH="$VIRTUAL_ENV/bin:$PATH"
+ENV PYTHONPATH="$VIRTUAL_ENV:$PYTHONPATH"
+ENV PATH="$VIRTUAL_ENV:$PATH"
 
 VOLUME [ "/opt/venv" ]
 
@@ -23,5 +24,7 @@ ENV FLASK_ENV="${FLASK_ENV}" \
     PYTHONUNBUFFERED="true"
 
 EXPOSE 1234
+
+EXPOSE 8786
 
 CMD [ "python", "app.py" ]
