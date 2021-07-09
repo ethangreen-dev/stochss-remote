@@ -1,6 +1,6 @@
 from enum import IntEnum
 from abc import ABC, abstractmethod
-from typing import Callable
+from typing import Callable, OrderedDict
 
 class JobState(IntEnum):
     WAITING = 0
@@ -21,8 +21,9 @@ class DelegateConfig(ABC):
         """
         Easy way to apply some number of named arguments onto self.
         """
-
-        self.__dict__ = self.__dict__ | kwargs
+        if self.__dict__ is None:
+            self.__dict__ = OrderedDict()
+        self.__dict__.update(kwargs)
 
 class Delegate(ABC):
     type: str = ""
