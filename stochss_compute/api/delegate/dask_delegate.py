@@ -33,7 +33,8 @@ class DaskDelegate(Delegate):
         # )
 
         # Initialize the Dask client and connect to the specified cluster.
-        cluster_address = f"tcp://{delegate_config.dask_cluster_address}:{delegate_config.dask_cluster_port}"
+        # cluster_address = f"tcp://{delegate_config.dask_cluster_address}:{delegate_config.dask_cluster_port}"
+        cluster_address = f"host.docker.internal:{delegate_config.dask_cluster_port}"
         self.client = Client(cluster_address)
 
         # Connect to the Redis DB.

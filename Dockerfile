@@ -25,6 +25,6 @@ ENV FLASK_ENV="${FLASK_ENV}" \
 
 EXPOSE 1234
 
-EXPOSE 8786
+# EXPOSE 8786
 
 CMD [ "python", "app.py" ]

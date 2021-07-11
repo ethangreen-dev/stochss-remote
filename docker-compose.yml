@@ -1,4 +1,4 @@
-version: "3.4"
+version: "3.8"
 
 services:
   redis:
@@ -27,10 +27,13 @@ services:
       retries: 3
     ports:
       - "${FLASK_PORT}:1234"
+      # - "8786"
     restart: "${DOCKER_RESTART_POLICY:-unless-stopped}"
     stop_grace_period: "${DOCKER_STOP_GRACE_PERIOD:-3s}"
     volumes:
       - "${DOCKER_WEB_VOLUME:-./public:/app/public}"
+    extra_hosts: 
+      - "host.docker.internal:host-gateway"
 
 volumes:
   redis: {}
