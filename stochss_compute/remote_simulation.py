@@ -1,9 +1,20 @@
-import time
+import bz2
+import sys
 import json
-import requests
+
+import plotly.io as plotlyio
 
 from gillespy2.core import Model
 from gillespy2.core import Results
+
+from .remote_utils import unwrap_or_err
+
+from .compute_server import Endpoint
+from .compute_server import ComputeServer
+
+from .remote_results import RemoteResults
+
+from .api.v1.gillespy2.model import ModelRunRequest
 
 from .api.v1.job import (
     StartJobRequest,
@@ -12,12 +23,6 @@ from .api.v1.job import (
     JobStopResponse,
     ErrorResponse
 )
-
-class ComputeServer():
-    def __init__(self, host, port):
-        self.host = host
-        self.port = port
-        self.address = f"http://{host}:{port}"
 
 class RemoteSimulation():
     @classmethod
@@ -30,10 +35,10 @@ class RemoteSimulation():
         :type server: ComputeServer
         """
 
-        sim = RemoteSimulation()
-        sim.server = server
+        return RemoteSimulation(server)
 
-        return sim
+    def __init__(self, server: ComputeServer):
+        self.server = server
 
     def with_model(self, model: Model):
         """
@@ -47,7 +52,7 @@ class RemoteSimulation():
 
         return self
 
-    def run(self, **params) -> Results:
+    def run(self, **params) -> RemoteResults:
         """
         Simulate the Model on the target ComputeServer, returning the results once complete.
 
@@ -55,61 +60,36 @@ class RemoteSimulation():
         
         :returns: Results
         """
+    
+        if "solver" in params:
+            params["solver"] = str(type(params["solver"]))
 
-        params = json.dumps(params)
+        start_request = ModelRunRequest(model=self.model, kwargs=params)
+        start_response = unwrap_or_err(JobStatusResponse, self.server.post(Endpoint.GILLESPY2_MODEL, sub="/run", request=start_request))
 
-        model_hash = self.model.get_json_hash()
-        model = self.model.to_json()
+        remote_results = RemoteResults(result_id=start_response.job_id, server=self.server)
+        return remote_results
 
-        request = StartJobRequest(
-            job_id=model_hash,
-            model=model
-        )
+    def test_plot(self):
+        plot_response = self.server.get(Endpoint.RESULT, f"/{self.model.get_json_hash()}/plot")
+        # plot_request = requests.get(f"{self.server.address}/api/v1/result/{self.model.get_json_hash()}/plot")
 
-        # Check to see if the job exists.
-        exists_response = requests.get(f"{self.server.address}/api/v1/job/{model_hash}/results")
-        if exists_response.status_code == 200:
-            return Results.from_json(exists_response.text)
+        print(f"Plot size: {sys.getsizeof(plot_response.content)}")
+        plot_json = bz2.decompress(plot_response.content).decode()
 
-        start_raw = requests.post(f"{self.server.address}/api/v1/job/start", json=request.json())
+        with open("test", "w") as outfile:
+            outfile.write(plot_json)
 
-        if start_raw.status_code != 202:
-            print(start_raw)
-            error = ErrorResponse.parse_raw(start_raw.text)
-
-            raise Exception(error.msg)
-
-        start_response = StartJobResponse.parse_raw(start_raw.text)
-
-        status_url = f"{self.server.address}/api{start_response.status}"
-        print(status_url)
-        status_raw = requests.get(status_url)
-
-        if status_raw.status_code != 200:
-            error = ErrorResponse.parse_raw(status_raw.text)
-            raise Exception(error.msg)
-
-        job_status = self.__get_job_status(status_url)
-
-        while not job_status.is_complete:
-            time.sleep(5)
-
-            job_status = self.__get_job_status(status_url)
-
-        results_raw = requests.get(f"{self.server.address}/api/v1/job/{request.job_id}/results")
-
-        if results_raw.status_code != 200:
-            error = ErrorResponse.parse_raw(results_raw.text)
-            raise Exception(error.msg)
-
-        return Results.from_json(results_raw.text)
+        plot = plotlyio.from_json(plot_json)
+        plot.show()
 
     def __get_job_status(self, status_url: str) -> JobStatusResponse:
-        status_raw = requests.get(status_url)
+        status_response  = self.server.get(Endpoint.JOB, status_url)
+        # status_raw = requests.get(status_url)
 
-        if status_raw.status_code != 200:
-            error = ErrorResponse.parse_raw(status_raw.text)
+        if status_response.status_code != 200:
+            error = ErrorResponse.parse_raw(status_response.text)
             raise Exception(error)
 
-        return JobStatusResponse.parse_raw(status_raw.text)
+        return JobStatusResponse.parse_raw(status_response.text)
 
